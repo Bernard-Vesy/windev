@@ -1,0 +1,68 @@
+// Résumé : Recherche d’un dessin physique depuis un numéro de pièce
+// Syntaxe :
+// [ <Résultat> = ] searchPart (<domain> est chaîne, <partNumber> est chaîne)
+
+PROCÉDURE searchPart(domain est une chaîne, partNumber is string)
+
+// Déclaration des variables
+sURL		est une chaîne UNICODE
+sXML		est une chaîne UNICODE
+action		est une chaîne UNICODE	= "GetDrawPhysFromPart"
+xmlDocName	est une chaîne			= DonneGUID(guidBrut)
+resjson		est une chaîne UNICODE
+
+// Construction de l’URL
+sURL = ChaîneConstruit("http://%1/cgi-bin/wspd_cgi.sh/WService=%2/%3?action=%4&domain=%5&drwpart=%6",__GServer,__GService,__GSourcefile,__GInternalProc,domain,partNumber)
+
+SI HTTPRequête(sURL) ALORS
+	
+	sXML	= AnsiVersUnicode(HTTPDonneRésultat(httpRésultat),alphabetUTF8)
+	sXML	= XMLExtraitChaîne(sXML,"BLOCK")
+	// Charger le XML dans un document XML
+	
+	SI sXML <> "" THEN
+		
+		sXML	= Remplace(sXML,"<drwphys_id>", "<drwphys_id>S",SansCasse)
+		sXML	= Remplace(sXML,"<drwphys_drwdetid>", "<drwphys_drwdetid>S",SansCasse)
+		sXML    = "<RES>"+sXML+"</RES>"
+		xmldoc est un xmlDocument = XMLOuvre(sXML,depuisChaîne)
+		
+		
+		resjson	= XMLVersJSON(xmldoc)
+		
+		resjson	= Remplace(resjson,"drwphys_id"":""S","drwphys_id"":""" )
+		resjson	= Remplace(resjson,"drwphys_drwdetid"":""S","drwphys_drwdetid"":""")
+		RENVOYER resjson
+	ELSE
+		RENVOYER SetErrorMstr(sXML,HTTPDonneRésultat(httpEntête))
+	END 
+ELSE
+	RENVOYER SetErrorMstr(sXML,ErreurInfo(errComplet))
+END 
+
+// Procédure interne pour formater l’erreur en JSON
+	PROCÉDURE INTERNE SetErrorMstr(__LErrorMsg est une chaîne UNICODE,httpError est une chaîne ANSI)
+		
+		__LErrorMsg  = [
+{
+	"drwphys_domain": null,
+	"drwphys_id": null,
+	"drwphys_drwdetid": null,
+	"drwphys_name": null,
+	"drwphys_filetype": null,
+	"drwphys_path": null,
+	"drwphys_url": null,
+	"drwphys_lang": null,
+	"drwdet_type": null,
+	"drwphys_type": null,
+	"ERROR": "%1"
+}
+		]
+		
+		
+		__LErrorMsg = ChaîneConstruit(__LErrorMsg,Remplace(httpError+RC+sURL,RC,"\n"))
+		RENVOYER __LErrorMsg
+	FIN	 
+
+
+
